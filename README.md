@@ -1,1 +1,1 @@
-# JSCP
+# Jay's Simple Configurable Pipeline
