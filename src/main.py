@@ -1,6 +1,6 @@
 from os import getenv
 
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, jsonify, make_response
 from dotenv import load_dotenv
 
 from exceptions.exceptions import SignatureError
@@ -29,17 +29,17 @@ def jscp():
     payload = request.get_json(silent=True)
     if not payload:
         Logs.error("Invalid JSON payload received")
-        abort(400, "Invalid JSON payload")
+        abort_json(400, "Invalid JSON payload")
 
     secret_token = getenv("WEBHOOK_SECRET") or ""
     if not secret_token:
         Logs.error("WEBHOOK_SECRET not configured")
-        abort(500, "Server not configured")
+        abort_json(400, "WEBHOOK_SECRET not configured")
 
     signature_header = request.headers.get("X-Hub-Signature-256")
     if not signature_header:
         Logs.error("Signature header not provided")
-        abort(403, "Signature header not provided")
+        abort_json(400, "Signature header not provided")
 
     try:
         parsed_payload = parse_github_webhook(
@@ -56,6 +56,15 @@ def jscp():
         abort(400, f"Error parsing payload: {str(e)}")
 
     return jsonify(parsed_payload.to_dict()), 200
+
+
+def abort_json(status_code: int, message: str):
+    abort(make_response(jsonify(error=message, status=status_code), status_code))
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify(error="Internal server error", status=500), 500
 
 
 if __name__ == "__main__":

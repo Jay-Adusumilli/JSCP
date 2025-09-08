@@ -4,17 +4,26 @@ from os import getenv
 
 from dotenv import load_dotenv
 
+
 class Logger:
     def __init__(self, name: str, log_file: str = None, level=logging.INFO):
+        """
+        A simple logger class that wraps Python's logging module.
+        :param name: Name of the logger.
+        :param log_file: Path to the log file.
+        :param level: Logging level.
+        """
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
         if not self.logger.hasHandlers():
             log_file = log_file or f"{name}.log"
-            handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=3)
+            handler = RotatingFileHandler(
+                log_file, maxBytes=5 * 1024 * 1024, backupCount=3
+            )
             formatter = logging.Formatter(
-                '[%(asctime)s] [%(name)s] %(levelname)s: %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                "[%(asctime)s] [%(name)s] %(levelname)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
@@ -39,4 +48,5 @@ class Logger:
 load_dotenv()
 
 # Init the logger.
-Logs = Logger("jscp", log_file=getenv("LOG_PATH"))
+log_file_path = getenv("LOG_PATH") or "/logs/jscp.log"
+Logs = Logger("jscp", log_file=log_file_path)
