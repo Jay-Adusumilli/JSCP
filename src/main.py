@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from exceptions.exceptions import SignatureError
 from payload.payload_parser import parse_github_webhook
 from logger.logger import Logs
+import traceback
 
 app = Flask(__name__)
 
@@ -64,6 +65,8 @@ def abort_json(status_code: int, message: str):
 
 @app.errorhandler(500)
 def handle_500(e):
+    Logs.error(f"Internal server error: {str(e)}")
+    Logs.debug(traceback.format_exc())
     return jsonify(error="Internal server error", status=500), 500
 
 
