@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 def build_and_push_registry2(
     repo_url: str,
@@ -23,13 +24,23 @@ def build_and_push_registry2(
     tag = ref
     image_tag = f"{registry_url}/{project}/{repo_name}:{tag}"
 
+    # Determine build context directory and Dockerfile name
+    df_dir, df_file = os.path.split(dockerfile_path)
+    context_dir = df_dir or "."
+
     # Build directly from git (branch or commit ref).
-    subprocess.run([
+    cmd = [
         "nerdctl", "--insecure-registry",
         "build",
         "-t", image_tag,
-        f"{repo_url}#{ref}:{dockerfile_path}"
-    ], check=True)
+    ]
+    # Only specify -f if the Dockerfile name is non-default relative to the context
+    if df_file and df_file != "Dockerfile":
+        cmd += ["-f", df_file]
+
+    cmd += [f"{repo_url}#{ref}:{context_dir}"]
+
+    subprocess.run(cmd, check=True)
 
     # Push to registry.
     subprocess.run([
@@ -40,12 +51,16 @@ def build_and_push_registry2(
     return image_tag
 
 
-if __name__ == "__main__":
-    # Example usage.
-    build_and_push_registry2(
-        repo_url="",
-        dockerfile_path="Dockerfile",
-        registry_url="registry.local:5000",
-        project="myproject",
-        ref="main"
-    )
+def rollout_restart_deployment(deployment_name: str, namespace: str = "default") -> None:
+    """
+    Perform a rollout restart of a Kubernetes deployment using kubectl.
+
+    :param deployment_name: Name of the deployment to restart.
+    :param namespace: Kubernetes namespace (default: default).
+    """
+
+    subprocess.run([
+        "kubectl", "rollout", "restart",
+        f"deployment/{deployment_name}",
+        "-n", namespace
+    ], check=True)

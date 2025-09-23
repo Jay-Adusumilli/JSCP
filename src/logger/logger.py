@@ -1,6 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from os import getenv
+import os
 
 from dotenv import load_dotenv
 
@@ -18,6 +19,16 @@ class Logger:
 
         if not self.logger.hasHandlers():
             log_file = log_file or f"{name}.log"
+
+            # Ensure the log directory exists if a directory is specified
+            log_dir = os.path.dirname(log_file)
+            if log_dir and not os.path.exists(log_dir):
+                try:
+                    os.makedirs(log_dir, exist_ok=True)
+                except Exception:
+                    # Fallback to current working directory if directory creation fails
+                    log_file = f"{name}.log"
+
             handler = RotatingFileHandler(
                 log_file, maxBytes=5 * 1024 * 1024, backupCount=3
             )
@@ -48,5 +59,6 @@ class Logger:
 load_dotenv()
 
 # Init the logger.
-log_file_path = getenv("LOG_PATH") or "/logs/jscp.log"
+# Default to a relative logs directory to avoid permission issues on import.
+log_file_path = getenv("LOG_PATH") or "./logs/jscp.log"
 Logs = Logger("jscp", log_file=log_file_path)

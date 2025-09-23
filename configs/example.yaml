@@ -1,0 +1,12 @@
+repo: Jay-Adusumilli/test
+version: 1
+registry_url: localhost:5000
+github_token: token
+project: example_project
+pipelines:
+  - name: example_pipeline
+    condition:
+      - branch: test
+      - event: push
+    pipeline: default
+    deployment_name: example_deployment
