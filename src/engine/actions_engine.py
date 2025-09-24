@@ -145,6 +145,9 @@ def run_configured_actions(configs: Dict[str, Union[Config, Dict[str, Any]]], pa
     registry_url = _value_from_config_or_env(cfg, "registry_url", "REGISTRY_URL")
     project = _value_from_config_or_env(cfg, "project", "REGISTRY_PROJECT", default="default")
 
+    # Optional: insecure registry flag (top-level default)
+    registry_insecure_default = bool(cfg.get("registry_insecure") or os.getenv("REGISTRY_INSECURE") in {"1", "true", "yes", "on"})
+
     # repo_url can be provided or derived from repo full name
     repo_url = cfg.get("repo_url") or (f"https://github.com/{repo_full}.git" if repo_full else None)
 
@@ -167,6 +170,7 @@ def run_configured_actions(configs: Dict[str, Union[Config, Dict[str, Any]]], pa
         pipe_registry_url = pipe.get("registry_url") or registry_url
         pipe_project = pipe.get("project") or project
         namespace = pipe.get("namespace") or "default"
+        pipe_registry_insecure = bool(pipe.get("registry_insecure") if pipe.get("registry_insecure") is not None else registry_insecure_default)
 
         # Validate required items
         if not repo_url:
@@ -196,6 +200,7 @@ def run_configured_actions(configs: Dict[str, Union[Config, Dict[str, Any]]], pa
                 registry_url=pipe_registry_url,
                 project=pipe_project,
                 ref=_normalize_branch(webhook.ref) or "main",
+                registry_insecure=pipe_registry_insecure,
             )
 
             build_success = True

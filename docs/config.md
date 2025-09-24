@@ -38,6 +38,7 @@ Top‑level keys apply to the whole repo and provide defaults for all pipelines.
 - `registry_url` (string, optional): Docker registry hostname (e.g., `localhost:5000`). If omitted, falls back to `REGISTRY_URL` env.
 - `project` (string, optional): Path segment used in the image tag (e.g., `myproject`). If omitted, falls back to `REGISTRY_PROJECT` env or defaults to `default`.
 - `repo_url` (string, optional): Full Git clone URL. If omitted, JCSP derives `https://github.com/<repo>.git` from `repo`.
+- `registry_insecure` (boolean, optional): Allow pushing to an insecure (HTTP) registry. Default: false. Can be overridden per‑pipeline.
 - `pipelines` (array, required): One or more pipeline definitions (see below).
 
 ## Pipeline schema
@@ -56,9 +57,10 @@ Common fields:
 Build and rollout settings:
 - `dockerfile_path` or `dockerfile` (string, optional): Path to the Dockerfile within the repo. Default: `Dockerfile` at the repo root.
   - Examples: `Dockerfile`, `deploy/Dockerfile`, `services/api/Dockerfile`.
-  - JCSP builds directly from the Git repo using BuildKit (`buildctl`) with a Git context. If the Dockerfile isn’t named `Dockerfile`, JCSP will set the frontend `filename` option automatically, and set the context to the Dockerfile’s directory.
+  - JCSP builds directly from the Git repo using BuildKit (`buildctl`) with an HTTPS/SSH Git context. If the Dockerfile isn’t named `Dockerfile`, JCSP sets the frontend `filename` option automatically and sets the context to the Dockerfile’s directory.
 - `registry_url` (string, optional): Overrides the top‑level `registry_url` for this pipeline.
 - `project` (string, optional): Overrides the top‑level `project` for this pipeline.
+- `registry_insecure` (boolean, optional): Overrides the top‑level `registry_insecure` for this pipeline. When true, JCSP adds `registry.insecure=true` to the BuildKit image output so pushes to HTTP registries succeed.
 - `deployment_name` (string, recommended): Kubernetes Deployment to rollout‑restart after pushing the image.
   - If omitted, rollout is skipped—and JCSP will mark the rollout status as "Skipped" for visibility.
 - `namespace` (string, optional): Kubernetes namespace for the deployment. Default: `default`.
@@ -94,6 +96,7 @@ A minimal working example, matching a push to branch `test`:
 repo: Jay-Adusumilli/test
 version: 1
 registry_url: localhost:5000
+registry_insecure: true
 github_token: <your PAT with repo:status>
 project: example_project
 pipelines:
@@ -116,6 +119,7 @@ pipelines:
     condition: { branch: main, event: push }
     dockerfile_path: services/api/Dockerfile
     project: myproject
+    registry_insecure: false
     deployment_name: api-deployment
     namespace: production
 
@@ -131,6 +135,7 @@ pipelines:
 - `GITHUB_TOKEN`: Fallback for `github_token` (used for commit statuses).
 - `REGISTRY_URL`: Fallback for `registry_url`.
 - `REGISTRY_PROJECT`: Fallback for `project` (default is `default`).
+- `REGISTRY_INSECURE`: When set to one of `1,true,yes,on`, defaults `registry_insecure` to true.
 - `LOG_PATH`: Optional path for log file (default is `./logs/jscp.log`).
 
 ## Hot reload behavior
@@ -141,7 +146,8 @@ pipelines:
 ## Operational prerequisites
 
 - The JCSP server host must have `buildctl` (BuildKit client) available in PATH and access to a running BuildKit daemon (`buildkitd`).
-- The registry specified by `registry_url` must be reachable from the server. If it is an insecure registry, ensure BuildKit is configured to allow it.
+- The BuildKit daemon performs the Git checkout for contexts like `https://github.com/<org>/<repo>.git#<ref>[:subdir]`. Ensure the host where `buildkitd` runs has outbound HTTPS access to GitHub (port 443). Avoid the `git://` protocol which may be blocked.
+- The registry specified by `registry_url` must be reachable from the server. If it is an insecure registry, set `registry_insecure: true` (or `REGISTRY_INSECURE`) so BuildKit marks the push as insecure.
 - For GitHub status updates, the token must have `repo:status` scope (for classic PATs).
 
 ## Troubleshooting tips
@@ -151,6 +157,6 @@ pipelines:
   - Check that the repo name in the webhook (`owner/repo`) matches the `repo` in your YAML.
 - Build fails immediately?
   - Verify `dockerfile_path` is correct and exists at that path in the repo.
-  - Ensure the server can access the repo URL and the specified branch/tag/commit. For private repos, provide an accessible URL or configure BuildKit with credentials.
+  - Ensure the BuildKit daemon can reach GitHub over HTTPS (443). If egress is restricted, consider using an internal Git mirror or pre-cloning to a local context instead of a remote Git context.
 - Rollout fails or is skipped?
   - Provide `deployment_name` and confirm `kubectl` has access to the cluster/namespace.
