@@ -1,6 +1,7 @@
 import subprocess
 import os
 
+
 def build_and_push_registry2(
     repo_url: str,
     dockerfile_path: str,
@@ -9,44 +10,51 @@ def build_and_push_registry2(
     ref: str = "main"
 ) -> str:
     """
-    Build a Docker image from a GitHub repo and push it to a registry:2 instance running in k3s.
+    Build a Docker image from a GitHub repo with BuildKit (buildctl) and push it to a registry:2 instance.
 
     :param repo_url: e.g. https://github.com/user/repo.git.
-    :param dockerfile_path: path to Dockerfile in repo.
+    :param dockerfile_path: path to Dockerfile in repo (relative to repo root).
     :param registry_url: e.g. registry.local:5000.
     :param project: logical grouping (path segment).
     :param ref: branch, tag, or commit SHA (default: main).
     :return: Full image tag pushed to registry.
     """
 
-    # Registry URL should not have a trailing slash or .git suffix.
+    # Normalize values
     repo_name = repo_url.split("/")[-1].replace(".git", "")
     tag = ref
     image_tag = f"{registry_url}/{project}/{repo_name}:{tag}"
 
-    # Determine build context directory and Dockerfile name
-    df_dir, df_file = os.path.split(dockerfile_path)
+    # Split Dockerfile path into context dir and Dockerfile filename
+    df_dir, df_file = os.path.split(dockerfile_path or "Dockerfile")
     context_dir = df_dir or "."
+    dockerfile_name = df_file or "Dockerfile"
 
-    # Build directly from git (branch or commit ref).
+    # BuildKit git context expects git:// scheme
+    # Convert https/http URLs to git:// while leaving others intact
+    if repo_url.startswith("https://"):
+        git_ctx_base = "git://" + repo_url[len("https://"):]
+    elif repo_url.startswith("http://"):
+        git_ctx_base = "git://" + repo_url[len("http://"):]
+    else:
+        git_ctx_base = repo_url
+
+    # Compose full git context with ref and optional subdirectory
+    if context_dir and context_dir != ".":
+        git_context = f"{git_ctx_base}#{ref}:{context_dir}"
+    else:
+        git_context = f"{git_ctx_base}#{ref}"
+
+    # Invoke buildctl to build and push
     cmd = [
-        "nerdctl", "--insecure-registry",
-        "build",
-        "-t", image_tag,
+        "sudo", "buildctl", "build",
+        "--frontend", "dockerfile.v0",
+        "--opt", f"filename={dockerfile_name}",
+        "--opt", f"context={git_context}",
+        "--output", f"type=image,name={image_tag},push=true",
     ]
-    # Only specify -f if the Dockerfile name is non-default relative to the context
-    if df_file and df_file != "Dockerfile":
-        cmd += ["-f", df_file]
-
-    cmd += [f"{repo_url}#{ref}:{context_dir}"]
 
     subprocess.run(cmd, check=True)
-
-    # Push to registry.
-    subprocess.run([
-        "nerdctl", "--insecure-registry",
-        "push", image_tag
-    ], check=True)
 
     return image_tag
 

@@ -56,7 +56,7 @@ Common fields:
 Build and rollout settings:
 - `dockerfile_path` or `dockerfile` (string, optional): Path to the Dockerfile within the repo. Default: `Dockerfile` at the repo root.
   - Examples: `Dockerfile`, `deploy/Dockerfile`, `services/api/Dockerfile`.
-  - JCSP builds directly from the Git repo using `nerdctl` with a Git URL as the build context. If the Dockerfile isn’t named `Dockerfile`, JCSP will pass `-f <name>` automatically, and set the context to the Dockerfile’s directory.
+  - JCSP builds directly from the Git repo using BuildKit (`buildctl`) with a Git context. If the Dockerfile isn’t named `Dockerfile`, JCSP will set the frontend `filename` option automatically, and set the context to the Dockerfile’s directory.
 - `registry_url` (string, optional): Overrides the top‑level `registry_url` for this pipeline.
 - `project` (string, optional): Overrides the top‑level `project` for this pipeline.
 - `deployment_name` (string, recommended): Kubernetes Deployment to rollout‑restart after pushing the image.
@@ -140,8 +140,8 @@ pipelines:
 
 ## Operational prerequisites
 
-- The JCSP server host must have `nerdctl` and `kubectl` available in PATH.
-- The registry specified by `registry_url` must be reachable from the server.
+- The JCSP server host must have `buildctl` (BuildKit client) available in PATH and access to a running BuildKit daemon (`buildkitd`).
+- The registry specified by `registry_url` must be reachable from the server. If it is an insecure registry, ensure BuildKit is configured to allow it.
 - For GitHub status updates, the token must have `repo:status` scope (for classic PATs).
 
 ## Troubleshooting tips
@@ -151,7 +151,6 @@ pipelines:
   - Check that the repo name in the webhook (`owner/repo`) matches the `repo` in your YAML.
 - Build fails immediately?
   - Verify `dockerfile_path` is correct and exists at that path in the repo.
-  - Ensure the server can clone the repo URL and access the specified branch/tag/commit.
+  - Ensure the server can access the repo URL and the specified branch/tag/commit. For private repos, provide an accessible URL or configure BuildKit with credentials.
 - Rollout fails or is skipped?
   - Provide `deployment_name` and confirm `kubectl` has access to the cluster/namespace.
-

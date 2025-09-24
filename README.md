@@ -5,17 +5,15 @@ Want to just build and deploy your Dockerized app to Kubernetes on GitHub events
 ### Features:
 - Simple YAML-based pipeline definitions.
 - Supports multiple pipelines per repo.
-- Builds Docker images using `nerdctl`.
+- Builds Docker images using BuildKit (`buildctl`) with a Git context.
 - Pushes images to your specified registry.
 - Deploys to Kubernetes using `kubectl rollout restart`.
 - Posts build statuses back to GitHub.
 
 ### Requires:
-- A Docker registry (e.g., Docker Hub, GitHub Container Registry, a private registry.
+- A Docker/OCI registry (e.g., Docker Hub, GHCR, or a private registry).
 - A Kubernetes cluster with `kubectl` access.
 - A GitHub Personal Access Token (PAT) with `repo:status` scope to post build statuses.
-- `nerdctl` installed on the server for building and pushing images.
+- `buildctl` installed on the server and access to a running BuildKit daemon (`buildkitd`).
 - A GitHub webhook pointing to your JCSP server.
 - Python.
-
-
