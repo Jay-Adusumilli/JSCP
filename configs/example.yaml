@@ -1,0 +1,20 @@
+repo: Jay-Adusumilli/test
+version: 1
+project: example_project
+registry_url: localhost:5000
+github_token: ${GITHUB_TOKEN}
+
+pipelines:
+  - name: example_pipeline
+    trigger:
+      branch: test
+      event: push
+
+    build:
+      dockerfile: ./Dockerfile
+      context: .
+      tag: "{{ registry_url }}/{{ project }}:{{ commit_sha }}"
+
+    deploy:
+      namespace: example_namespace
+      deployment_name: example_deployment
